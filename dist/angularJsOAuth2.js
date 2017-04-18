@@ -6,7 +6,7 @@
         set: function(token, $window) { $window.sessionStorage.setItem('token', token); },
         clear: function($window) { $window.sessionStorage.removeItem('token'); }
     };
-    
+
 	function expired(token) {
 		return (token && token.expires_at && new Date(token.expires_at) < new Date());
 	};
@@ -38,7 +38,7 @@
 			var token = getTokenFromHashParams(hash);
 			if (token !== null) {
 				setExpiresAt(token);
-                tokenStorage.set(JSON.stringify(token), $window)	
+                tokenStorage.set(JSON.stringify(token), $window)
 			}
 			return token;
 		}
@@ -99,8 +99,8 @@
 					}
 				}
 			}
-			
-			if (service.token === null) {			
+
+			if (service.token === null) {
 				service.token = getSessionToken($window);
 				if (service.token === undefined) {
 					service.token = null;
@@ -127,7 +127,7 @@
 					$rootScope.$broadcast('oauth2:authError', 'Suspicious callback');
 				}
 			}
-			
+
 
 			return service.token;
 		};
@@ -142,7 +142,7 @@
 
 	// Auth interceptor - if token is missing or has expired this broadcasts an authRequired event
 	angular.module('oauth2.interceptor', []).factory('OAuth2Interceptor', ['$rootScope', '$q', '$window',  function ($rootScope, $q, $window) {
-		
+
 		var service = {
 			request: function(config) {
 				var token = getSessionToken($window);
@@ -274,7 +274,7 @@
 				window.location.replace(url);
 			}
 		};
-		
+
 		service.init = function(params) {
 			function generateState() {
 				var text = ((Date.now() + Math.random()) * Math.random()).toString().replace(".","");
@@ -303,12 +303,21 @@
 	}]);
 
 	// Open ID directive
-	angular.module('oauth2.directive', [])
-		.config(['$routeProvider', function ($routeProvider) {
-			$routeProvider
-				.when('/silent-renew', {
-					template: ""
-				})
+	// angular.module('oauth2.directive', [])
+	// 	.config(['$routeProvider', function ($routeProvider) {
+	// 		$routeProvider
+	// 			.when('/silent-renew', {
+	// 				template: ""
+	// 			})
+	// 	}])
+  angular.module('oauth2.directive', [])
+		.config(['$stateProvider', function ($stateProvider) {
+		    $stateProvider
+            .state('silent-renew', {
+                name: 'SilentRenew',
+                url: '/silent-renew',
+                template: ''
+            })
 		}])
 		.directive('oauth2', ['$rootScope', '$http', '$window', '$location', '$templateCache', '$compile', 'AccessToken', 'Endpoint', function($rootScope, $http, $window, $location, $templateCache, $compile, accessToken, endpoint) {
 			var definition = {
@@ -349,15 +358,30 @@
 				}
 		    };
 
-		    function routeChangeHandler(event, nextRoute) {
-		    	if (nextRoute.$$route && nextRoute.$$route.requireToken) {
-	                if (!accessToken.get() || expired(accessToken.get())) {
-	                	event.preventDefault();
-	                	$window.sessionStorage.setItem('oauthRedirectRoute', $location.path());
-	                    endpoint.authorize();
-	                }
-	            }
-		    };
+		    // function routeChangeHandler(event, nextRoute) {
+		    // 	if (nextRoute.$$route && nextRoute.$$route.requireToken) {
+	      //           if (!accessToken.get() || expired(accessToken.get())) {
+	      //           	event.preventDefault();
+	      //           	$window.sessionStorage.setItem('oauthRedirectRoute', $location.path());
+	      //               endpoint.authorize();
+	      //           }
+	      //       }
+		    // };
+
+        function stateChangeHandler(event, toState, toParams, fromState, fromParams, options) {
+          if (toState && toState.requireToken) {
+            if (!accessToken.get() || expired(accessToken.get())) {
+              event.preventDefault();
+              $window.sessionStorage.setItem('oauthRedirectRoute', toState.url);
+
+              if (scope.signUpMode) {
+                endpoint.signUp();
+              } else {
+                endpoint.authorize();
+              }
+            }
+          }
+        };
 
 
 			function init() {
@@ -413,7 +437,8 @@
 					accessToken.destroy();
 				});
 				scope.signedIn = accessToken.set() !== null;
-				$rootScope.$on('$routeChangeStart', routeChangeHandler);
+				// $rootScope.$on('$routeChangeStart', routeChangeHandler);
+				$rootScope.$on('$stateChangeStart', stateChangeHandler);
 			}
 
 			scope.$watch('clientId', function(value) { init(); });
